@@ -23,6 +23,7 @@ import {
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { EPaperArea, EPaperPage } from "./ePaper";
+import Content from "@/components/Content";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ function makeArea(num: number, imgW: number, imgH: number): EPaperArea {
         height:     h,
         actionType: "popup",
         linkUrl:    "",
+        content:    "",
         customId:   "",
     };
 }
@@ -252,7 +254,7 @@ export default function EPaperPopup({ page, onSave, onClose }: Props) {
 
     // ── Render ────────────────────────────────────────────────────────────────
     const modal = (
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-9999 flex flex-col bg-black/75 backdrop-blur-sm">
             <div className="flex flex-col h-full bg-white md:rounded-2xl md:m-3 overflow-hidden shadow-2xl">
                 <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2.5 shrink-0">
 
@@ -486,6 +488,8 @@ export default function EPaperPopup({ page, onSave, onClose }: Props) {
                                             <span className="flex-1 truncate">
                                                 {a.actionType === "link"
                                                     ? `Link: ${a.linkUrl || "—"}`
+                                                    : a.actionType === "content"
+                                                    ? "Content"
                                                     : "Popup"}
                                             </span>
                                             {a.customId && (
@@ -518,7 +522,7 @@ export default function EPaperPopup({ page, onSave, onClose }: Props) {
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-xs font-semibold text-gray-500">Action Type</label>
                                         <div className="flex gap-2">
-                                            {(["popup", "link"] as const).map((t) => (
+                                            {(["popup", "link", "content"] as const).map((t) => (
                                                 <button
                                                     key={t}
                                                     type="button"
@@ -530,11 +534,15 @@ export default function EPaperPopup({ page, onSave, onClose }: Props) {
                                                     }`}
                                                 >
                                                     <Icon
-                                                        icon={t === "popup" ? "solar:layers-minimalistic-bold" : "solar:link-bold"}
+                                                        icon={
+                                                            t === "popup"   ? "solar:layers-minimalistic-bold" :
+                                                            t === "link"    ? "solar:link-bold" :
+                                                                              "solar:document-text-bold"
+                                                        }
                                                         width={12}
                                                         className="inline mr-1"
                                                     />
-                                                    {t === "popup" ? "Popup" : "Link"}
+                                                    {t === "popup" ? "Popup" : t === "link" ? "Link" : "Content"}
                                                 </button>
                                             ))}
                                         </div>
@@ -550,6 +558,17 @@ export default function EPaperPopup({ page, onSave, onClose }: Props) {
                                                 onChange={(e) => updateArea(selectedArea.number, { linkUrl: e.target.value })}
                                                 placeholder="https://example.com"
                                                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none transition focus:border-indigo-500"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Content editor — shown only when actionType === content */}
+                                    {selectedArea.actionType === "content" && (
+                                        <div className="flex flex-col gap-1.5">
+                                            <Content
+                                                label="Content"
+                                                content={selectedArea.content ?? ""}
+                                                onChange={(v) => updateArea(selectedArea.number, { content: v })}
                                             />
                                         </div>
                                     )}

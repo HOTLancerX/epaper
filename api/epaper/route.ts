@@ -31,8 +31,9 @@ export const dynamic = "force-dynamic";
  *         y:          number
  *         width:      number
  *         height:     number
- *         actionType: "popup" | "link"
+ *         actionType: "popup" | "link" | "content"
  *         linkUrl:    string
+ *         content:    string
  *         customId:   string
  *       }>
  *     }>

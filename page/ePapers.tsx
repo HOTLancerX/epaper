@@ -34,8 +34,9 @@ interface EPaperArea {
     y:          number;
     width:      number;
     height:     number;
-    actionType: "popup" | "link";
+    actionType: "popup" | "link" | "content";
     linkUrl:    string;
+    content:    string;
     customId:   string;
 }
 
@@ -463,7 +464,7 @@ export default function EPaperStaticPages({ settings = {} }: Props) {
             </main>
 
             {/* ── Popup modal ── */}
-            {popupOpen && activeArea && activeArea.actionType === "popup" && activePage && (
+            {popupOpen && activeArea && activeArea.actionType !== "link" && activePage && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
                     onClick={() => setPopupOpen(false)}
@@ -482,32 +483,39 @@ export default function EPaperStaticPages({ settings = {} }: Props) {
                             <Icon icon="mdi:close" width={16} />
                         </button>
 
-                        {/* Scrollable wrapper — scrolls when crop is taller than 90vh */}
-                        <div style={{ flex: 1, minHeight: 0, overflowY: "scroll" }}>
-                            {(() => {
-                                const a = activeArea;
-                                const maxW     = typeof window !== "undefined" ? Math.floor(window.innerWidth * 0.9) : 720;
-                                const displayW = Math.min(720, maxW);
-                                const scale    = displayW / a.width;
-                                const displayH = Math.round(a.height * scale);
-                                const bgW      = Math.round(naturalSize.w * scale);
-                                const bgH      = naturalSize.h > 0 ? Math.round(naturalSize.h * scale) : 0;
-                                const bgX      = -Math.round(a.x * scale);
-                                const bgY      = -Math.round(a.y * scale);
-                                return (
-                                    <div
-                                        style={{
-                                            width:              displayW,
-                                            height:             displayH,
-                                            backgroundImage:    `url(${activePage.image})`,
-                                            backgroundRepeat:   "no-repeat",
-                                            backgroundSize:     `${bgW}px ${bgH > 0 ? bgH + "px" : "auto"}`,
-                                            backgroundPosition: `${bgX}px ${bgY}px`,
-                                        }}
-                                    />
-                                );
-                            })()}
-                        </div>
+                        {/* Content type — display rich-text HTML */}
+                        {activeArea.actionType === "content" ? (
+                            <div className="flex-1 overflow-y-auto px-6 py-5 prose prose-sm max-w-none"
+                                dangerouslySetInnerHTML={{ __html: activeArea.content || "" }}
+                            />
+                        ) : (
+                            /* Popup type — scrollable cropped image */
+                            <div style={{ flex: 1, minHeight: 0, overflowY: "scroll" }}>
+                                {(() => {
+                                    const a = activeArea;
+                                    const maxW     = typeof window !== "undefined" ? Math.floor(window.innerWidth * 0.9) : 720;
+                                    const displayW = Math.min(720, maxW);
+                                    const scale    = displayW / a.width;
+                                    const displayH = Math.round(a.height * scale);
+                                    const bgW      = Math.round(naturalSize.w * scale);
+                                    const bgH      = naturalSize.h > 0 ? Math.round(naturalSize.h * scale) : 0;
+                                    const bgX      = -Math.round(a.x * scale);
+                                    const bgY      = -Math.round(a.y * scale);
+                                    return (
+                                        <div
+                                            style={{
+                                                width:              displayW,
+                                                height:             displayH,
+                                                backgroundImage:    `url(${activePage.image})`,
+                                                backgroundRepeat:   "no-repeat",
+                                                backgroundSize:     `${bgW}px ${bgH > 0 ? bgH + "px" : "auto"}`,
+                                                backgroundPosition: `${bgX}px ${bgY}px`,
+                                            }}
+                                        />
+                                    );
+                                })()}
+                            </div>
+                        )}
 
                         {/* Footer: customId + next part */}
                         {(activeArea.customId || nextPageIdx >= 0) && (

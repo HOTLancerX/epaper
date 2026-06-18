@@ -35,9 +35,11 @@ export interface EPaperArea {
     width: number;
     height: number;
     /** What happens when a visitor clicks this area */
-    actionType: "popup" | "link";
+    actionType: "popup" | "link" | "content";
     /** URL — only relevant when actionType === "link" */
     linkUrl: string;
+    /** Rich-text HTML — only relevant when actionType === "content" */
+    content: string;
     /** Free-form reference ID set by the editor */
     customId: string;
 }
