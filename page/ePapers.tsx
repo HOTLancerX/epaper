@@ -115,7 +115,7 @@ function AreaOverlay({ area, naturalW, containerW, isActive, onActivate }: AreaO
             }`}
         >
             {/* Badge — invisible by default, fades in on hover */}
-            <span className="absolute -top-3 -left-1 flex h-5 min-w-[18px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white shadow opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <span className="absolute -top-3 -left-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white shadow opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                 {area.number}
             </span>
         </div>
@@ -137,18 +137,45 @@ export default function EPaperStaticPages({ settings = {} }: Props) {
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState("");
 
-    useEffect(() => {
-        fetch("/api/epaper", { cache: "no-store" })
+    const fetchPosts = useCallback((dateStr?: string) => {
+        setLoading(true);
+        setError("");
+        setDateNotFound(false);
+        const url = dateStr ? `/api/epaper?date=${dateStr}` : "/api/epaper";
+        fetch(url, { cache: "no-store" })
             .then((r) => {
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return r.json();
             })
             .then((data: { posts: EPaperPost[] }) => {
-                setPosts(data.posts ?? []);
+                const list = data.posts ?? [];
+                setPosts(list);
+                if (dateStr && list.length === 0) setDateNotFound(true);
             })
             .catch((e) => setError(String(e)))
             .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+    // ── Date search state ─────────────────────────────────────────────────────
+    const [dateInput,    setDateInput]    = useState("");
+    const [dateNotFound, setDateNotFound] = useState(false);
+
+    const handleDateSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!dateInput) return;
+        fetchPosts(dateInput);
+        setActivePostId("");
+        setActivePageIdx(0);
+    };
+
+    const handleClear = () => {
+        setDateInput("");
+        fetchPosts();
+        setActivePostId("");
+        setActivePageIdx(0);
+    };
 
     // ── UI state ──────────────────────────────────────────────────────────────
     const [activePostId,  setActivePostId]  = useState<string>("");
@@ -267,6 +294,42 @@ export default function EPaperStaticPages({ settings = {} }: Props) {
     return (
         <div className="flex flex-col min-h-screen bg-gray-50">
 
+            {/* ── Date search bar ── */}
+            <form
+                onSubmit={handleDateSearch}
+                className="flex items-center gap-2 px-4 py-3 bg-white border-b border-gray-200"
+            >
+                <input
+                    type="date"
+                    value={dateInput}
+                    onChange={(e) => setDateInput(e.target.value)}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                    type="submit"
+                    disabled={!dateInput}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    <Icon icon="solar:calendar-search-bold" width={15} />
+                    Search
+                </button>
+                {dateInput && (
+                    <button
+                        type="button"
+                        onClick={handleClear}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-500 transition hover:bg-gray-100"
+                    >
+                        <Icon icon="mdi:close" width={14} />
+                        Clear
+                    </button>
+                )}
+                {dateNotFound && (
+                    <span className="text-xs text-amber-600 font-medium">
+                        No edition found for this date.
+                    </span>
+                )}
+            </form>
+
             {/* ── Left sidebar: post / date list ── */}
             <aside className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r border-gray-200 bg-white md:overflow-y-auto">
                 {/* Header
@@ -340,7 +403,7 @@ export default function EPaperStaticPages({ settings = {} }: Props) {
                         {/* Active page */}
                         {activePage && (
                             <div className="flex flex-col flex-1 overflow-y-auto">
-                                {/* Page title */}
+                                {/* Page title
                                 {activePage.title && (
                                     <div className="px-4 pt-4 pb-2">
                                         <h2 className="text-lg font-bold text-gray-800">
@@ -348,7 +411,7 @@ export default function EPaperStaticPages({ settings = {} }: Props) {
                                         </h2>
                                     </div>
                                 )}
-
+                                 */}
                                 {/* Image + interactive area overlays */}
                                 <div
                                     className="relative mx-4 mb-4 rounded-xl overflow-hidden shadow-md"

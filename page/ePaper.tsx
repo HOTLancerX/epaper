@@ -8,19 +8,23 @@
  *
  * On mount it fetches /api/epaper directly and renders:
  *
- *   Left sidebar  — list of all epaper posts (title + full date).
- *                   Most recent is active by default.
- *                   Clicking a date loads that edition.
+ *   Date search bar — day / month / year dropdowns + Search button.
+ *                     Submitting fetches /api/epaper?date=YYYY-MM-DD.
+ *                     "Show all" clears the filter and reloads the full list.
  *
- *   Right panel   — active post viewer:
- *                   • Tab strip when the post has multiple pages
- *                   • Full-width image with clickable area overlays
- *                   • Area click:
- *                       actionType "popup" → modal dialog
- *                       actionType "link"  → opens linkUrl in new tab
- *                   • If clicked area has a customId range (e.g. "1-50"),
- *                     a "Read next part →" button appears that jumps to
- *                     the page whose area range starts at rangeEnd + 1.
+ *   Left sidebar    — list of all epaper posts (title + full date).
+ *                     Most recent is active by default.
+ *                     Clicking a date loads that edition.
+ *
+ *   Right panel     — active post viewer:
+ *                     • Tab strip when the post has multiple pages
+ *                     • Full-width image with clickable area overlays
+ *                     • Area click:
+ *                         actionType "popup" → modal dialog
+ *                         actionType "link"  → opens linkUrl in new tab
+ *                     • If clicked area has a customId range (e.g. "1-50"),
+ *                       a "Read next part" button appears that jumps to
+ *                       the page whose area range starts at rangeEnd + 1.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -128,23 +132,59 @@ interface Props {
 export default function EPaperStaticPage({ settings = {} }: Props) {
     const siteName = (settings?.siteName as string) || "ePaper";
 
+    // ── Date search state ─────────────────────────────────────────────────────
+    const currentYear = new Date().getFullYear();
+    const [searchDay,   setSearchDay]   = useState("");
+    const [searchMonth, setSearchMonth] = useState("");
+    const [searchYear,  setSearchYear]  = useState("");
+    const [dateNotFound, setDateNotFound] = useState(false);
+
     // ── Data fetching ─────────────────────────────────────────────────────────
     const [posts,   setPosts]   = useState<EPaperPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [error,   setError]   = useState("");
 
-    useEffect(() => {
-        fetch("/api/epaper", { cache: "no-store" })
+    const fetchPosts = useCallback((dateStr?: string) => {
+        setLoading(true);
+        setError("");
+        setDateNotFound(false);
+        const url = dateStr ? `/api/epaper?date=${dateStr}` : "/api/epaper";
+        fetch(url, { cache: "no-store" })
             .then((r) => {
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 return r.json();
             })
             .then((data: { posts: EPaperPost[] }) => {
-                setPosts(data.posts ?? []);
+                const list = data.posts ?? [];
+                setPosts(list);
+                if (dateStr && list.length === 0) setDateNotFound(true);
             })
             .catch((e) => setError(String(e)))
             .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+    // ── Date search handlers ──────────────────────────────────────────────────
+    const handleDateSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!searchDay || !searchMonth || !searchYear) return;
+        const mm = String(searchMonth).padStart(2, "0");
+        const dd = String(searchDay).padStart(2, "0");
+        fetchPosts(`${searchYear}-${mm}-${dd}`);
+        // Reset active post so the new result becomes selected
+        setActivePostId("");
+        setActivePageIdx(0);
+    };
+
+    const handleShowAll = () => {
+        setSearchDay("");
+        setSearchMonth("");
+        setSearchYear("");
+        fetchPosts();
+        setActivePostId("");
+        setActivePageIdx(0);
+    };
 
     // ── UI state ──────────────────────────────────────────────────────────────
     const [activePostId,  setActivePostId]  = useState<string>("");
@@ -262,6 +302,97 @@ export default function EPaperStaticPage({ settings = {} }: Props) {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className="container">
+            {/* ── Date search bar ── */}
+            <form
+                onSubmit={handleDateSearch}
+                className="flex flex-wrap items-end gap-2 mb-4 p-3 bg-gray-50 border border-gray-200 rounded-xl"
+            >
+                {/* Day */}
+                <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Day</label>
+                    <select
+                        value={searchDay}
+                        onChange={(e) => setSearchDay(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                        <option value="">--</option>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Month */}
+                <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Month</label>
+                    <select
+                        value={searchMonth}
+                        onChange={(e) => setSearchMonth(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                        <option value="">--</option>
+                        {[
+                            "January","February","March","April","May","June",
+                            "July","August","September","October","November","December",
+                        ].map((name, idx) => (
+                            <option key={idx + 1} value={idx + 1}>{name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Year */}
+                <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Year</label>
+                    <select
+                        value={searchYear}
+                        onChange={(e) => setSearchYear(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                        <option value="">----</option>
+                        {Array.from({ length: 10 }, (_, i) => currentYear - i).map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-end gap-2 pb-0.5">
+                    <button
+                        type="submit"
+                        disabled={!searchDay || !searchMonth || !searchYear}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Icon icon="solar:calendar-search-bold" width={16} />
+                        Search
+                    </button>
+                    {(searchDay || searchMonth || searchYear) && (
+                        <button
+                            type="button"
+                            onClick={handleShowAll}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
+                        >
+                            Show all
+                        </button>
+                    )}
+                </div>
+            </form>
+
+            {/* ── date-not-found notice ── */}
+            {dateNotFound && (
+                <div className="flex items-center gap-2 mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+                    <Icon icon="solar:calendar-bold" width={18} className="shrink-0" />
+                    No edition found for{" "}
+                    {searchDay}/{searchMonth}/{searchYear}.
+                    <button
+                        type="button"
+                        onClick={handleShowAll}
+                        className="ml-auto text-xs font-semibold underline underline-offset-2"
+                    >
+                        Show all
+                    </button>
+                </div>
+            )}
+
             {/* ── page viewer ── */}
             <main className="flex-1 flex flex-col overflow-hidden">
                 {!activePost || activePost.pages.length === 0 ? (
@@ -316,7 +447,7 @@ export default function EPaperStaticPage({ settings = {} }: Props) {
                         {/* Active page */}
                         {activePage && (
                             <div className="flex flex-col flex-1 overflow-y-auto">
-                                {/* Page title */}
+                                {/* Page title
                                 {activePage.title && (
                                     <div className="px-4 pt-4 pb-2">
                                         <h2 className="text-lg font-bold text-gray-800">
@@ -324,7 +455,7 @@ export default function EPaperStaticPage({ settings = {} }: Props) {
                                         </h2>
                                     </div>
                                 )}
-
+ */}
                                 {/* Image + interactive area overlays */}
                                 <div
                                     className="relative mx-4 mb-4 rounded-xl overflow-hidden shadow-md"
